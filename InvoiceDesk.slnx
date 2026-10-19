@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InvoiceDesk.Core/InvoiceDesk.Core.csproj" />
+    <Project Path="src/InvoiceDesk.Desktop/InvoiceDesk.Desktop.csproj" />
+    <Project Path="src/InvoiceDesk.Web/InvoiceDesk.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InvoiceDesk.Tests/InvoiceDesk.Tests.csproj" />
+  </Folder>
+</Solution>

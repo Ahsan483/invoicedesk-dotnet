@@ -1,0 +1,67 @@
+﻿@page "/"
+@inject InvoiceStore Store
+
+<PageTitle>Dashboard · InvoiceDesk</PageTitle>
+
+<header class="top"><h1>Dashboard</h1><span class="muted">@DateTime.Today.ToString("dddd, d MMMM yyyy")</span></header>
+
+<section class="kpis">
+    <div class="card kpi"><span>Revenue this month</span><b>@Fmt.Money(_s.RevenueThisMonth)</b></div>
+    <div class="card kpi"><span>Invoices this month</span><b>@_s.InvoicesThisMonth</b></div>
+    <div class="card kpi"><span>Low-stock items</span><b class="@(_s.LowStockItems > 0 ? "danger" : "")">@_s.LowStockItems</b></div>
+    <div class="card kpi"><span>Customers</span><b>@_s.Customers</b></div>
+</section>
+
+<section class="two">
+    <div class="card">
+        <h2>Revenue, last 14 days</h2>
+        <svg viewBox="0 0 700 300" class="chart" role="img" aria-label="Revenue per day">
+            @for (var k = 0; k <= 4; k++)
+            {
+                var y = 260 - 220 * k / 4.0;
+                <g>
+                    <line x1="60" x2="690" y1="@y" y2="@y" class="gridline" />
+                    <text x="52" y="@(y + 4)" text-anchor="end">@("$" + (_max * k / 4).ToString("#,##0"))</text>
+                </g>
+            }
+            @for (var i = 0; i < _s.Last14Days.Count; i++)
+            {
+                var d = _s.Last14Days[i];
+                var h = (double)(d.Amount / _max) * 220;
+                var x = 66 + i * 45;
+                <rect x="@x" y="@(260 - h)" width="30" height="@h" rx="3" class="@(i == 13 ? "bar today" : "bar")">
+                    <title>@d.Day.ToString("d MMM"): @Fmt.Money(d.Amount)</title>
+                </rect>
+                @if (i % 2 == 1)
+                {
+                    <g><text x="@(x + 15)" y="282" text-anchor="middle">@d.Day.ToString("d MMM")</text></g>
+                }
+            }
+        </svg>
+    </div>
+    <div class="card">
+        <h2>Recent invoices</h2>
+        <table>
+            <thead><tr><th>Invoice</th><th>Customer</th><th class="num">Total</th></tr></thead>
+            <tbody>
+                @foreach (var i in _recent)
+                {
+                    <tr><td><a href="invoices/@i.Id">@i.Number</a></td><td>@i.CustomerName</td><td class="num">@Fmt.Money(i.Total)</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    private DashboardStats _s = null!;
+    private List<Invoice> _recent = new();
+    private decimal _max;
+
+    protected override void OnInitialized()
+    {
+        _s = Store.GetDashboard(DateTime.Today);
+        _max = Math.Max(100m, _s.Last14Days.Max(d => d.Amount));
+        _recent = Store.GetInvoices().Take(8).ToList();
+    }
+}

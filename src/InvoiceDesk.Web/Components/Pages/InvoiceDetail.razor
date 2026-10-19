@@ -1,0 +1,53 @@
+@page "/invoices/{Id:int}"
+@inject InvoiceStore Store
+@inject IJSRuntime JS
+
+<PageTitle>@(_inv?.Number ?? "Invoice") · InvoiceDesk</PageTitle>
+
+@if (_inv is null)
+{
+    <p>Invoice not found.</p>
+}
+else
+{
+    <header class="top no-print"><h1>Invoice @_inv.Number</h1>
+        <span><button class="btn primary" @onclick="Print">Print / Save as PDF</button> <a class="btn" href="invoices">Back to invoices</a></span>
+    </header>
+    @if (Saved)
+    {
+        <div class="notice no-print">Saved. Stock levels were updated.</div>
+    }
+    <article class="paper">
+        <div class="paper-head">
+            <div><div class="paper-brand">InvoiceDesk Demo Store</div><div class="muted">12 Market Street, Seattle WA · hello@example.com</div></div>
+            <div class="paper-title">INVOICE<small>@_inv.Number<br />@_inv.Date.ToString("dd MMM yyyy")</small></div>
+        </div>
+        <div class="muted label">BILL TO</div>
+        <div class="billto">@_inv.CustomerName</div>
+        <table>
+            <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead>
+            <tbody>
+                @foreach (var l in _inv.Lines)
+                {
+                    <tr><td>@l.ProductName</td><td class="num">@l.Quantity</td><td class="num">@Fmt.Money(l.UnitPrice)</td><td class="num">@Fmt.Money(l.Total)</td></tr>
+                }
+            </tbody>
+        </table>
+        <div class="totals">
+            <div><span>Subtotal</span><span>@Fmt.Money(_inv.Subtotal)</span></div>
+            <div><span>Sales tax (@_inv.TaxRate.ToString("P0"))</span><span>@Fmt.Money(_inv.Tax)</span></div>
+            <div class="grand"><span>Total due</span><span>@Fmt.Money(_inv.Total)</span></div>
+        </div>
+        <p class="muted small">Thank you for your business. Payment due within 14 days.</p>
+    </article>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [SupplyParameterFromQuery] public bool Saved { get; set; }
+    private Invoice? _inv;
+
+    protected override void OnParametersSet() => _inv = Store.GetInvoice(Id);
+
+    private async Task Print() => await JS.InvokeVoidAsync("print");
+}

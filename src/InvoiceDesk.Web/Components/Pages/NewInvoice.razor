@@ -1,0 +1,108 @@
+@page "/invoices/new"
+@inject InvoiceStore Store
+@inject NavigationManager Nav
+
+<PageTitle>New invoice · InvoiceDesk</PageTitle>
+
+<header class="top"><h1>New invoice</h1><span class="muted">@DateTime.Today.ToString("dddd, d MMMM yyyy")</span></header>
+
+<div class="card form-row">
+    <label>Customer
+        <select id="customer" @bind="_customerId">
+            <option value="0">Choose a customer</option>
+            @foreach (var c in _customers)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </label>
+    <label class="grow">Product
+        <select id="product" @bind="_productId">
+            <option value="0">Choose a product</option>
+            @foreach (var p in _products)
+            {
+                <option value="@p.Id">@p.Name  (@p.Stock in stock)</option>
+            }
+        </select>
+    </label>
+    <label>Qty <input id="qty" type="number" min="1" max="999" @bind="_qty" class="qty" /></label>
+    <button id="add-line" class="btn" @onclick="AddLine">Add line</button>
+    @if (_message is not null)
+    {
+        <div class="error">@_message</div>
+    }
+</div>
+
+<section class="two narrow-right">
+    <div class="card flush">
+        <table>
+            <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Line total</th><th></th></tr></thead>
+            <tbody>
+                @if (_draft.Lines.Count == 0)
+                {
+                    <tr><td colspan="5" class="muted empty">No lines yet. Pick a product and click Add line.</td></tr>
+                }
+                @foreach (var l in _draft.Lines)
+                {
+                    <tr>
+                        <td>@l.ProductName</td><td class="num">@l.Quantity</td><td class="num">@Fmt.Money(l.UnitPrice)</td><td class="num">@Fmt.Money(l.Total)</td>
+                        <td class="num"><button class="link" @onclick="() => _draft.Lines.Remove(l)">Remove</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="card summary">
+        <h2>Summary</h2>
+        <div class="row"><span>Subtotal</span><span>@Fmt.Money(_draft.Subtotal)</span></div>
+        <div class="row"><span>Sales tax (8%)</span><span>@Fmt.Money(_draft.Tax)</span></div>
+        <div class="row grand"><span>Total</span><span>@Fmt.Money(_draft.Total)</span></div>
+        <button id="save" class="btn primary wide" @onclick="Save">Save invoice</button>
+    </div>
+</section>
+
+@code {
+    private List<Customer> _customers = new();
+    private List<Product> _products = new();
+    private Invoice _draft = new();
+    private int _customerId, _productId, _qty = 1;
+    private string? _message;
+
+    protected override void OnInitialized()
+    {
+        _customers = Store.GetCustomers();
+        _products = Store.GetProducts();
+    }
+
+    private void AddLine()
+    {
+        _message = null;
+        var p = _products.FirstOrDefault(x => x.Id == _productId);
+        if (p is null) { _message = "Choose a product first."; return; }
+        if (_qty < 1) { _message = "Quantity must be at least 1."; return; }
+        var already = _draft.Lines.Where(l => l.ProductId == p.Id).Sum(l => l.Quantity);
+        if (already + _qty > p.Stock) { _message = $"Only {p.Stock} x {p.Name} in stock. Reduce the quantity or reorder."; return; }
+        _draft.Lines.Add(new InvoiceLine(p.Id, p.Name, _qty, p.Price));
+        _qty = 1;
+    }
+
+    private void Save()
+    {
+        _message = null;
+        var c = _customers.FirstOrDefault(x => x.Id == _customerId);
+        if (c is null) { _message = "Choose a customer."; return; }
+        if (_draft.Lines.Count == 0) { _message = "Add at least one line."; return; }
+        _draft.CustomerId = c.Id;
+        _draft.CustomerName = c.Name;
+        _draft.Date = DateTime.Now;
+        try
+        {
+            var id = Store.SaveInvoice(_draft);
+            Nav.NavigateTo($"invoices/{id}?saved=true");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _message = ex.Message;
+        }
+    }
+}

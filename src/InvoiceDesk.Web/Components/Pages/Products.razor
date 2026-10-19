@@ -1,0 +1,92 @@
+@page "/products"
+@using System.ComponentModel.DataAnnotations
+@inject InvoiceStore Store
+
+<PageTitle>Products · InvoiceDesk</PageTitle>
+
+<header class="top"><h1>Products</h1><span class="muted">@_rows.Count products · @_rows.Count(p => p.IsLowStock) need reordering</span></header>
+
+<div class="toolbar">
+    <input class="search" placeholder="Search name, SKU or category" @bind="_search" @bind:event="oninput" @bind:after="Load" />
+    <label class="check"><input type="checkbox" @bind="_lowOnly" @bind:after="Load" /> Low stock only</label>
+    <span class="spacer"></span>
+    <button class="btn primary" @onclick="AddNew">+ Add product</button>
+</div>
+
+@if (_edit is not null)
+{
+    <div class="card editor">
+        <h2>@(_edit.Id == 0 ? "Add product" : "Edit " + _edit.Name)</h2>
+        <EditForm Model="_edit" OnValidSubmit="SaveEdit" FormName="product">
+            <DataAnnotationsValidator />
+            <div class="fields">
+                <label>SKU <InputText @bind-Value="_edit.Sku" /></label>
+                <label>Name <InputText @bind-Value="_edit.Name" /></label>
+                <label>Category <InputText @bind-Value="_edit.Category" /></label>
+                <label>Price ($) <InputNumber @bind-Value="_edit.Price" /></label>
+                <label>In stock <InputNumber @bind-Value="_edit.Stock" /></label>
+                <label>Reorder at <InputNumber @bind-Value="_edit.ReorderLevel" /></label>
+            </div>
+            <ValidationSummary />
+            <button class="btn primary" type="submit">Save</button>
+            <button class="btn" type="button" @onclick="() => _edit = null">Cancel</button>
+        </EditForm>
+    </div>
+}
+
+<div class="card flush">
+    <table>
+        <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">In stock</th><th class="num">Reorder at</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var p in _rows)
+            {
+                <tr class="@(p.IsLowStock ? "low" : "")">
+                    <td class="mono">@p.Sku</td><td>@p.Name</td><td>@p.Category</td>
+                    <td class="num">@Fmt.Money(p.Price)</td>
+                    <td class="num stock">@p.Stock</td><td class="num">@p.ReorderLevel</td>
+                    <td class="num"><button class="link" @onclick="() => Edit(p)">Edit</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Product> _rows = new();
+    private string _search = "";
+    private bool _lowOnly;
+    private ProductForm? _edit;
+
+    protected override void OnInitialized() => Load();
+
+    private void Load()
+    {
+        _rows = Store.GetProducts(_search);
+        if (_lowOnly) _rows = _rows.Where(p => p.IsLowStock).ToList();
+    }
+
+    private void AddNew() => _edit = new ProductForm { Category = "Accessories", ReorderLevel = 5 };
+
+    private void Edit(Product p) => _edit = new ProductForm
+    {
+        Id = p.Id, Sku = p.Sku, Name = p.Name, Category = p.Category, Price = p.Price, Stock = p.Stock, ReorderLevel = p.ReorderLevel,
+    };
+
+    private void SaveEdit()
+    {
+        Store.SaveProduct(new Product(_edit!.Id, _edit.Sku.Trim(), _edit.Name.Trim(), _edit.Category.Trim(), _edit.Price, _edit.Stock, _edit.ReorderLevel));
+        _edit = null;
+        Load();
+    }
+
+    private sealed class ProductForm
+    {
+        public int Id { get; set; }
+        [Required, StringLength(12)] public string Sku { get; set; } = "";
+        [Required, StringLength(60)] public string Name { get; set; } = "";
+        [Required] public string Category { get; set; } = "";
+        [Range(0.01, 100000)] public decimal Price { get; set; }
+        [Range(0, 100000)] public int Stock { get; set; }
+        [Range(0, 100000)] public int ReorderLevel { get; set; }
+    }
+}

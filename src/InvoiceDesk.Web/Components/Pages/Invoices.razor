@@ -1,0 +1,44 @@
+@page "/invoices"
+@inject InvoiceStore Store
+
+<PageTitle>Invoices · InvoiceDesk</PageTitle>
+
+<header class="top"><h1>Invoices</h1><span class="muted">@_rows.Count invoices · @Fmt.Money(_rows.Sum(i => i.Total))</span></header>
+
+<div class="toolbar">
+    <label class="inline">From <input type="date" @bind="_from" @bind:after="Load" /></label>
+    <label class="inline">To <input type="date" @bind="_to" @bind:after="Load" /></label>
+    <input class="search" placeholder="Filter by customer" @bind="_customer" @bind:event="oninput" @bind:after="Load" />
+    <span class="spacer"></span>
+    <a class="btn" href="@ExportUrl" target="_blank">Export CSV</a>
+    <a class="btn primary" href="invoices/new">+ New invoice</a>
+</div>
+
+<div class="card flush">
+    <table>
+        <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th class="num">Items</th><th class="num">Tax</th><th class="num">Total</th></tr></thead>
+        <tbody>
+            @foreach (var i in _rows)
+            {
+                <tr>
+                    <td><a href="invoices/@i.Id">@i.Number</a></td>
+                    <td>@i.Date.ToString("dd MMM yyyy  HH:mm")</td><td>@i.CustomerName</td>
+                    <td class="num">@i.Lines.Sum(l => l.Quantity)</td><td class="num">@Fmt.Money(i.Tax)</td><td class="num">@Fmt.Money(i.Total)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Invoice> _rows = new();
+    private DateTime _from = DateTime.Today.AddDays(-30);
+    private DateTime _to = DateTime.Today;
+    private string _customer = "";
+
+    private string ExportUrl => $"export/invoices.csv?from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}&customer={Uri.EscapeDataString(_customer)}";
+
+    protected override void OnInitialized() => Load();
+
+    private void Load() => _rows = Store.GetInvoices(_from, _to, _customer);
+}
